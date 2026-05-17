@@ -46,7 +46,23 @@ def calculate_fitness(chromosome, teacher_availability,
         if teacher_availability.get(key) is False:
             score -= 100
 
-    # ── SOFT: teacher >3 consecutive slots ───────────────────────────────────
+    # ── HARD: lab subjects must be 2 consecutive slots on the same day ────────
+    # Group genes by (class_id, subject_id) — find lab pairs
+    subject_class_genes = {}
+    for g in genes:
+        key = (g.class_id, g.subject_id)
+        subject_class_genes.setdefault(key, []).append(g)
+
+    for (class_id, subject_id), sg in subject_class_genes.items():
+        if len(sg) == 2:
+            g1, g2 = sg[0], sg[1]
+            same_day   = g1.day == g2.day
+            consecutive = abs(g1.slot_number - g2.slot_number) == 1
+            if not same_day or not consecutive:
+                # Lab pair is broken — heavy penalty
+                score -= 100
+
+    # ── SOFT: teacher more than 3 consecutive slots ───────────────────────────
     teacher_day_slots = {}
     for g in genes:
         key = (g.teacher_id, g.day)

@@ -1,5 +1,6 @@
 import random
 
+
 class Gene:
     def __init__(self, class_id, subject_id, teacher_id,
                  room_id, day, slot_number):
@@ -21,8 +22,10 @@ class Gene:
         }
 
     def copy(self):
-        return Gene(self.class_id, self.subject_id, self.teacher_id,
-                    self.room_id, self.day, self.slot_number)
+        return Gene(
+            self.class_id, self.subject_id, self.teacher_id,
+            self.room_id,  self.day,        self.slot_number
+        )
 
 
 class Chromosome:
@@ -31,7 +34,7 @@ class Chromosome:
         self.fitness_score = float("inf")
 
     def copy(self):
-        c = Chromosome()
+        c               = Chromosome()
         c.genes         = [g.copy() for g in self.genes]
         c.fitness_score = self.fitness_score
         return c
@@ -39,13 +42,9 @@ class Chromosome:
 
 def build_initial_chromosome(assignments, rooms, working_days,
                               lectures_per_day, locked_genes=None):
-    """
-    locked_genes: list of gene dicts that are pre-fixed
-    (used for elective subjects already scheduled in another section).
-    """
     chrom = Chromosome()
 
-    # Add locked genes first (elective subjects same-slot enforcement)
+    # Add locked genes first
     locked_ids = set()
     if locked_genes:
         for g in locked_genes:
@@ -59,45 +58,61 @@ def build_initial_chromosome(assignments, rooms, working_days,
             ))
             locked_ids.add(g["subject_id"])
 
-    # All valid (day, slot) pairs
+    # All valid individual slots
     all_slots = [
         (day, slot)
         for day in working_days
         for slot in range(1, lectures_per_day + 1)
     ]
 
-    # Consecutive slot pairs for lab subjects (slot N and slot N+1 same day)
-    consecutive_pairs = [
+    # Valid consecutive START slots (slot N and N+1 both exist)
+    consecutive_starts = [
         (day, slot)
         for day in working_days
-        for slot in range(1, lectures_per_day)  # slot and slot+1 both valid
+        for slot in range(1, lectures_per_day)  # slot+1 must also be valid
     ]
 
     for assignment in assignments:
-        # Skip if this subject is already locked (elective)
         if assignment["subject_id"] in locked_ids:
             continue
 
-        credits      = assignment["credits_per_week"]
         subject_type = assignment.get("subject_type", "theory")
         room         = random.choice(rooms)
 
         if subject_type == "lab":
-            # ── Lab: assign exactly 2 CONSECUTIVE slots on the same day ──────
-            if consecutive_pairs:
-                day, start_slot = random.choice(consecutive_pairs)
-                for offset in range(2):
-                    chrom.genes.append(Gene(
-                        class_id   = assignment["class_id"],
-                        subject_id = assignment["subject_id"],
-                        teacher_id = assignment["teacher_id"],
-                        room_id    = room["id"],
-                        day        = day,
-                        slot_number= start_slot + offset,
-                    ))
+            # ── ALWAYS pick 2 consecutive slots on the same day ───────────────
+            if not consecutive_starts:
+                continue
+
+            # Try to find a consecutive pair not already used
+            shuffled = consecutive_starts.copy()
+            random.shuffle(shuffled)
+
+            placed = False
+            for (day, start_slot) in shuffled:
+                chrom.genes.append(Gene(
+                    class_id   = assignment["class_id"],
+                    subject_id = assignment["subject_id"],
+                    teacher_id = assignment["teacher_id"],
+                    room_id    = room["id"],
+                    day        = day,
+                    slot_number= start_slot,
+                ))
+                chrom.genes.append(Gene(
+                    class_id   = assignment["class_id"],
+                    subject_id = assignment["subject_id"],
+                    teacher_id = assignment["teacher_id"],
+                    room_id    = room["id"],
+                    day        = day,
+                    slot_number= start_slot + 1,
+                ))
+                placed = True
+                break
+
         else:
             # ── Regular: assign exactly `credits` unique slots ────────────────
-            chosen = random.sample(
+            credits = assignment.get("credits_per_week", 3)
+            chosen  = random.sample(
                 all_slots, min(credits, len(all_slots))
             )
             for (day, slot) in chosen:

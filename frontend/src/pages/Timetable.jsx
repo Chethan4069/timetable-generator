@@ -25,12 +25,11 @@ const COLORS = [
 ];
 
 // ── Stable color map ──────────────────────────────────────────────────────────
-// Same subject always gets same color.
-// Elective paired subjects share the same color.
 function buildColorMap(subjects, electivePairs) {
     const map = {};
     let index = 0;
 
+    // Elective paired subjects share the same color
     (electivePairs || []).forEach(pair => {
         if (map[pair.subject1_id] === undefined) {
             map[pair.subject1_id] = index % COLORS.length;
@@ -39,6 +38,7 @@ function buildColorMap(subjects, electivePairs) {
         }
     });
 
+    // Remaining subjects get unique colors
     Object.values(subjects || {}).forEach(s => {
         if (map[s.id] === undefined) {
             map[s.id] = index % COLORS.length;
@@ -68,7 +68,8 @@ function DraggableCard({
         id: dragId,
     });
 
-    const colorIdx = colorMap?.[gene.subject_id] ?? (gene.subject_id % COLORS.length);
+    const colorIdx = colorMap?.[gene.subject_id] ??
+        (gene.subject_id % COLORS.length);
     const color = COLORS[colorIdx % COLORS.length];
     const label = getSubjectLabel(gene.subject_id, electivePairs, subjects);
     const teacher = teachers[gene.teacher_id];
@@ -88,8 +89,11 @@ function DraggableCard({
                   ${color.bg} ${color.border}
                   ${isDragging ? "opacity-40" : ""}
                   transition-shadow hover:shadow-lg`}>
-            <div {...listeners} {...attributes} className="flex-1 overflow-hidden">
-                <div className="text-white text-xs font-bold truncate">{label}</div>
+            <div {...listeners} {...attributes}
+                className="flex-1 overflow-hidden">
+                <div className="text-white text-xs font-bold truncate">
+                    {label}
+                </div>
                 <div className="text-gray-300 text-xs truncate mt-0.5">
                     👨‍🏫 {teacher?.name || "—"}
                 </div>
@@ -110,7 +114,9 @@ function DraggableCard({
 
 // ── Droppable cell ────────────────────────────────────────────────────────────
 function DroppableCell({ day, slot, children }) {
-    const { setNodeRef, isOver } = useDroppable({ id: `${day}-${slot}` });
+    const { setNodeRef, isOver } = useDroppable({
+        id: `${day}-${slot}`,
+    });
     return (
         <td className="p-1.5">
             <div ref={setNodeRef}
@@ -125,7 +131,10 @@ function DroppableCell({ day, slot, children }) {
 }
 
 // ── Edit Modal ────────────────────────────────────────────────────────────────
-function EditModal({ gene, subjects, teachers, rooms, onSave, onClose }) {
+function EditModal({
+    gene, subjects, teachers, rooms,
+    onSave, onClose, onDelete
+}) {
     const [form, setForm] = useState({
         subject_id: gene.subject_id,
         teacher_id: gene.teacher_id,
@@ -139,10 +148,13 @@ function EditModal({ gene, subjects, teachers, rooms, onSave, onClose }) {
                     justify-center z-50 p-4">
             <div className="bg-gray-800 rounded-2xl p-8 w-full max-w-md
                       shadow-2xl border border-gray-600">
+
                 <h2 className="text-xl font-bold text-white mb-6">
                     ✏️ Edit — {gene.day} Slot {gene.slot_number}
                 </h2>
+
                 <div className="space-y-4">
+                    {/* Subject, Teacher, Room dropdowns */}
                     {[
                         {
                             label: "Subject", key: "subject_id",
@@ -161,7 +173,8 @@ function EditModal({ gene, subjects, teachers, rooms, onSave, onClose }) {
                             <label className="text-gray-400 text-sm block mb-1">
                                 {label}
                             </label>
-                            <select value={form[key]}
+                            <select
+                                value={form[key]}
                                 onChange={(e) => setForm({
                                     ...form, [key]: Number(e.target.value)
                                 })}
@@ -175,9 +188,12 @@ function EditModal({ gene, subjects, teachers, rooms, onSave, onClose }) {
                         </div>
                     ))}
 
+                    {/* Day + Slot */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="text-gray-400 text-sm block mb-1">Day</label>
+                            <label className="text-gray-400 text-sm block mb-1">
+                                Day
+                            </label>
                             <select value={form.day}
                                 onChange={(e) => setForm({ ...form, day: e.target.value })}
                                 className="w-full bg-gray-700 text-white px-4 py-3
@@ -189,7 +205,9 @@ function EditModal({ gene, subjects, teachers, rooms, onSave, onClose }) {
                             </select>
                         </div>
                         <div>
-                            <label className="text-gray-400 text-sm block mb-1">Slot</label>
+                            <label className="text-gray-400 text-sm block mb-1">
+                                Slot
+                            </label>
                             <select value={form.slot_number}
                                 onChange={(e) => setForm({
                                     ...form, slot_number: Number(e.target.value)
@@ -205,18 +223,45 @@ function EditModal({ gene, subjects, teachers, rooms, onSave, onClose }) {
                     </div>
                 </div>
 
-                <div className="flex gap-3 mt-8">
-                    <button onClick={() => onSave(gene, form)}
+                {/* Save + Cancel */}
+                <div className="flex gap-3 mt-6">
+                    <button
+                        onClick={() => onSave(gene, form)}
                         className="flex-1 bg-blue-600 hover:bg-blue-700
-                       text-white font-semibold py-3 rounded-lg transition">
+                       text-white font-semibold py-3 rounded-lg
+                       transition">
                         ✅ Save Changes
                     </button>
-                    <button onClick={onClose}
+                    <button
+                        onClick={onClose}
                         className="flex-1 bg-gray-700 hover:bg-gray-600
-                       text-white font-semibold py-3 rounded-lg transition">
+                       text-white font-semibold py-3 rounded-lg
+                       transition">
                         Cancel
                     </button>
                 </div>
+
+                {/* Delete slot */}
+                <div className="mt-3 pt-3 border-t border-gray-700">
+                    <button
+                        onClick={() => {
+                            if (window.confirm(
+                                `Delete "${subjects[gene.subject_id]?.name || "this slot"}" ` +
+                                `from ${gene.day} Slot ${gene.slot_number}?\n\n` +
+                                `Note: For lab subjects, both consecutive slots will be removed.`
+                            )) {
+                                onDelete(gene);
+                            }
+                        }}
+                        className="w-full bg-red-900/50 hover:bg-red-800
+                       border border-red-700 text-red-300
+                       hover:text-red-200 font-semibold py-3
+                       rounded-lg transition flex items-center
+                       justify-center gap-2">
+                        🗑️ Delete this slot from timetable
+                    </button>
+                </div>
+
             </div>
         </div>
     );
@@ -235,7 +280,9 @@ function TimetableGrid({
     const [exporting, setExporting] = useState(false);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+        useSensor(PointerSensor, {
+            activationConstraint: { distance: 8 }
+        })
     );
 
     // Build display grid for this class
@@ -245,6 +292,7 @@ function TimetableGrid({
         if (!displayGrid[key]) displayGrid[key] = { ...gene };
     });
 
+    // ── Drag end ────────────────────────────────────────────────────────────────
     const handleDragEnd = (event) => {
         const { active, over } = event;
         setActiveId(null);
@@ -273,6 +321,7 @@ function TimetableGrid({
         toast.success(`Moved to ${destDay} Slot ${destSlot}`);
     };
 
+    // ── Edit save ───────────────────────────────────────────────────────────────
     const handleEditSave = (originalGene, newData) => {
         const updated = (genes || []).map(g => {
             if (g.day === originalGene.day &&
@@ -289,6 +338,47 @@ function TimetableGrid({
         toast.success("Slot updated!");
     };
 
+    // ── Delete slot ─────────────────────────────────────────────────────────────
+    const handleDeleteSlot = (geneToDelete) => {
+        // Check if lab — same subject + class + day has 2 genes
+        const labGenes = (genes || []).filter(
+            x => x.subject_id === geneToDelete.subject_id &&
+                x.class_id === geneToDelete.class_id &&
+                x.day === geneToDelete.day
+        );
+        const isLab = labGenes.length === 2;
+
+        const updated = (genes || []).filter(g => {
+            if (isLab) {
+                // Remove both consecutive lab slots
+                return !(
+                    g.subject_id === geneToDelete.subject_id &&
+                    g.class_id === geneToDelete.class_id &&
+                    g.day === geneToDelete.day
+                );
+            } else {
+                // Remove only the exact slot
+                return !(
+                    g.subject_id === geneToDelete.subject_id &&
+                    g.class_id === geneToDelete.class_id &&
+                    g.day === geneToDelete.day &&
+                    g.slot_number === geneToDelete.slot_number
+                );
+            }
+        });
+
+        onGenesChange(updated);
+        setEditGene(null);
+        setHasChanges(true);
+        setSavedId(null);
+        toast.success(
+            isLab
+                ? "Both lab slots deleted"
+                : "Slot deleted from timetable"
+        );
+    };
+
+    // ── Save to history ─────────────────────────────────────────────────────────
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -299,7 +389,7 @@ function TimetableGrid({
             });
             setSavedId(res.data.timetable.id);
             setHasChanges(false);
-            toast.success(`${classInfo.name} saved!`);
+            toast.success(`${classInfo.name} saved to history!`);
         } catch (err) {
             toast.error(err.response?.data?.error || "Failed to save");
         } finally {
@@ -307,6 +397,7 @@ function TimetableGrid({
         }
     };
 
+    // ── Export PDF ──────────────────────────────────────────────────────────────
     const handleExportPDF = () => {
         setExporting(true);
         try {
@@ -314,58 +405,95 @@ function TimetableGrid({
                 orientation: "landscape", unit: "mm", format: "a4"
             });
 
+            // Dark background
             pdf.setFillColor(17, 24, 39);
-            pdf.rect(0, 0, pdf.internal.pageSize.getWidth(),
-                pdf.internal.pageSize.getHeight(), "F");
+            pdf.rect(
+                0, 0,
+                pdf.internal.pageSize.getWidth(),
+                pdf.internal.pageSize.getHeight(),
+                "F"
+            );
+
+            // Title
             pdf.setFontSize(16);
             pdf.setTextColor(99, 179, 237);
             pdf.text(
-                `${classInfo.name} — Sem ${classInfo.semester} Section ${classInfo.section}`,
+                `${classInfo.name} — Sem ${classInfo.semester} ` +
+                `Section ${classInfo.section}`,
                 14, 16
             );
+
+            // Subtitle
             pdf.setFontSize(9);
             pdf.setTextColor(156, 163, 175);
-            pdf.text(`Generated: ${new Date().toLocaleString()}`, 14, 24);
+            pdf.text(
+                `Generated: ${new Date().toLocaleString()}   |   ` +
+                `TimetableAI — Genetic Algorithm Scheduler`,
+                14, 24
+            );
 
-            const colorMapPDF = {
-                0: [30, 64, 175], 1: [109, 40, 217], 2: [4, 120, 87],
-                3: [180, 83, 9], 4: [185, 28, 28], 5: [15, 118, 110],
-                6: [157, 23, 77], 7: [67, 56, 202],
+            // Color map for PDF cells
+            const pdfColorMap = {
+                0: [30, 64, 175],
+                1: [109, 40, 217],
+                2: [4, 120, 87],
+                3: [180, 83, 9],
+                4: [185, 28, 28],
+                5: [15, 118, 110],
+                6: [157, 23, 77],
+                7: [67, 56, 202],
             };
 
+            // Build table data
             const head = [["Slot", ...DAYS]];
             const body = SLOTS.map(slot => {
                 const row = [`Slot ${slot}`];
                 DAYS.forEach(day => {
                     const gene = displayGrid[`${day}-${slot}`];
                     if (!gene) { row.push("—"); return; }
-                    const label = getSubjectLabel(gene.subject_id,
-                        electivePairs, subjects);
+                    const lbl = getSubjectLabel(
+                        gene.subject_id, electivePairs, subjects
+                    );
                     const teacher = teachers[gene.teacher_id];
                     const room = rooms[gene.room_id];
                     row.push(
-                        `${label}\n${teacher?.name || ""}\n${room?.name || ""}`
+                        `${lbl}\n` +
+                        `${teacher?.name || "—"}\n` +
+                        `${room?.name || "—"}`
                     );
                 });
                 return row;
             });
 
             autoTable(pdf, {
-                head, body, startY: 30,
+                head,
+                body,
+                startY: 30,
                 styles: {
-                    fontSize: 8, cellPadding: 3,
-                    textColor: [255, 255, 255], fillColor: [31, 41, 55],
-                    lineColor: [55, 65, 81], lineWidth: 0.3,
-                    valign: "middle", overflow: "linebreak", minCellHeight: 18,
+                    fontSize: 8,
+                    cellPadding: 3,
+                    textColor: [255, 255, 255],
+                    fillColor: [31, 41, 55],
+                    lineColor: [55, 65, 81],
+                    lineWidth: 0.3,
+                    valign: "middle",
+                    overflow: "linebreak",
+                    minCellHeight: 18,
                 },
                 headStyles: {
-                    fillColor: [17, 24, 39], textColor: [147, 197, 253],
-                    fontSize: 9, fontStyle: "bold", halign: "center",
+                    fillColor: [17, 24, 39],
+                    textColor: [147, 197, 253],
+                    fontSize: 9,
+                    fontStyle: "bold",
+                    halign: "center",
                 },
                 columnStyles: {
                     0: {
-                        fillColor: [17, 24, 39], textColor: [156, 163, 175],
-                        fontStyle: "bold", halign: "center", cellWidth: 20
+                        fillColor: [17, 24, 39],
+                        textColor: [156, 163, 175],
+                        fontStyle: "bold",
+                        halign: "center",
+                        cellWidth: 20,
                     },
                 },
                 didParseCell: (data) => {
@@ -374,8 +502,9 @@ function TimetableGrid({
                         const day = DAYS[data.column.index - 1];
                         const gene = displayGrid[`${day}-${slot}`];
                         if (gene) {
-                            const ci = colorMap?.[gene.subject_id] ?? (gene.subject_id % 8);
-                            const [r, g, b] = colorMapPDF[ci % 8] || [31, 41, 55];
+                            const ci = colorMap?.[gene.subject_id] ??
+                                (gene.subject_id % 8);
+                            const [r, g, b] = pdfColorMap[ci % 8] || [31, 41, 55];
                             data.cell.styles.fillColor = [r, g, b];
                             data.cell.styles.halign = "center";
                         }
@@ -384,14 +513,17 @@ function TimetableGrid({
                 theme: "grid",
             });
 
+            // Footer
             const ph = pdf.internal.pageSize.getHeight();
             pdf.setFontSize(8);
             pdf.setTextColor(107, 114, 128);
             pdf.text("Generated by TimetableAI", 14, ph - 5);
+
             pdf.save(
                 `timetable_${classInfo.name}_sec${classInfo.section}.pdf`
             );
             toast.success("PDF downloaded!");
+
         } catch (err) {
             toast.error("Export failed: " + err.message);
             console.error(err);
@@ -400,9 +532,11 @@ function TimetableGrid({
         }
     };
 
+    // ── Render ──────────────────────────────────────────────────────────────────
     return (
         <div>
-            {/* Buttons */}
+
+            {/* Action buttons */}
             <div className="flex gap-3 mb-4 flex-wrap items-center">
                 {hasChanges && (
                     <span className="bg-amber-900/50 border border-amber-600
@@ -410,15 +544,19 @@ function TimetableGrid({
                         ⚠️ Unsaved changes
                     </span>
                 )}
-                <button onClick={handleSave}
+                <button
+                    onClick={handleSave}
                     disabled={saving || (!hasChanges && !!savedId)}
                     className="bg-green-600 hover:bg-green-700 text-white
                      font-semibold px-5 py-2 rounded-lg transition
                      disabled:opacity-50 text-sm">
-                    {saving ? "Saving..."
+                    {saving
+                        ? "Saving..."
                         : (savedId && !hasChanges) ? "✅ Saved" : "💾 Save"}
                 </button>
-                <button onClick={handleExportPDF} disabled={exporting}
+                <button
+                    onClick={handleExportPDF}
+                    disabled={exporting}
                     className="bg-blue-600 hover:bg-blue-700 text-white
                      font-semibold px-5 py-2 rounded-lg transition
                      disabled:opacity-50 text-sm">
@@ -426,7 +564,7 @@ function TimetableGrid({
                 </button>
             </div>
 
-            {/* Grid */}
+            {/* Timetable grid with DnD */}
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -485,7 +623,7 @@ function TimetableGrid({
                     </table>
                 </div>
 
-                {/* Ghost while dragging */}
+                {/* Ghost card while dragging */}
                 <DragOverlay>
                     {activeId && (() => {
                         const parts = activeId.split("-");
@@ -499,8 +637,9 @@ function TimetableGrid({
                               opacity-90 shadow-2xl cursor-grabbing
                               ${color.bg} ${color.border}`}>
                                 <div className="text-white text-xs font-bold truncate">
-                                    {getSubjectLabel(gene.subject_id,
-                                        electivePairs, subjects)}
+                                    {getSubjectLabel(
+                                        gene.subject_id, electivePairs, subjects
+                                    )}
                                 </div>
                                 <div className="text-gray-300 text-xs">
                                     {teachers[gene.teacher_id]?.name}
@@ -514,7 +653,7 @@ function TimetableGrid({
                 </DragOverlay>
             </DndContext>
 
-            {/* Edit Modal */}
+            {/* Edit + Delete Modal */}
             {editGene && (
                 <EditModal
                     gene={editGene}
@@ -523,8 +662,10 @@ function TimetableGrid({
                     rooms={rooms}
                     onSave={handleEditSave}
                     onClose={() => setEditGene(null)}
+                    onDelete={handleDeleteSlot}
                 />
             )}
+
         </div>
     );
 }
@@ -540,19 +681,21 @@ export default function Timetable() {
     const [classInfoMap, setClassInfoMap] = useState({});
     const [activeTab, setActiveTab] = useState(0);
 
+    // ── Load timetable + lookup data ────────────────────────────────────────────
     useEffect(() => {
-        // Load timetable result
         const saved = localStorage.getItem("timetable_result");
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
                 if (typeof parsed === "object" && !Array.isArray(parsed)) {
+                    // Multi-section: { "classId": [...genes] }
                     const built = Object.keys(parsed).map(classId => ({
                         classId: Number(classId),
                         genes: parsed[classId] || [],
                     }));
                     setSections(built);
                 } else {
+                    // Single section: array
                     const classId = Number(
                         localStorage.getItem("timetable_class") || "1"
                     );
@@ -563,13 +706,14 @@ export default function Timetable() {
             }
         }
 
-        // Load lookup data
+        // Load all lookup data in one shot
         Promise.all([
             API.get("/subjects/"),
             API.get("/teachers/"),
             API.get("/rooms/"),
             API.get("/electives/"),
         ]).then(([s, t, r, e]) => {
+
             const sm = {};
             s.data.subjects.forEach(x => (sm[x.id] = x));
             setSubjects(sm);
@@ -585,14 +729,13 @@ export default function Timetable() {
             const pairs = e.data.elective_pairs || [];
             setElectivePairs(pairs);
 
-            // Build stable color map
-            const cm = buildColorMap(sm, pairs);
-            setColorMap(cm);
+            // Build stable color map after all subjects loaded
+            setColorMap(buildColorMap(sm, pairs));
 
         }).catch(err => console.error("Load error:", err));
     }, []);
 
-    // Load class info for each section
+    // ── Load class info for each section ───────────────────────────────────────
     useEffect(() => {
         if (sections.length === 0) return;
         sections.forEach(sec => {
@@ -604,6 +747,7 @@ export default function Timetable() {
                     }));
                 })
                 .catch(() => {
+                    // Fallback if class fetch fails
                     setClassInfoMap(prev => ({
                         ...prev,
                         [sec.classId]: {
@@ -617,13 +761,14 @@ export default function Timetable() {
         });
     }, [sections]);
 
+    // ── Handle genes change for a section ──────────────────────────────────────
     const handleGenesChange = (classId, newGenes) => {
         setSections(prev =>
             prev.map(s =>
                 s.classId === classId ? { ...s, genes: newGenes } : s
             )
         );
-        // Persist
+        // Persist to localStorage
         try {
             const saved = localStorage.getItem("timetable_result");
             if (saved) {
@@ -640,8 +785,11 @@ export default function Timetable() {
         } catch { /* ignore */ }
     };
 
+    // ── Render ──────────────────────────────────────────────────────────────────
     return (
         <Layout>
+
+            {/* Page header */}
             <div className="mb-6">
                 <h1 className="text-3xl font-bold text-white">
                     Generated Timetable
@@ -649,10 +797,12 @@ export default function Timetable() {
                 <p className="text-gray-400 mt-1">
                     🖱️ <span className="text-blue-400">Drag</span> to swap •
                     ✏️ Click <span className="text-blue-400">Edit</span> to modify •
+                    🗑️ Delete slot from Edit modal •
                     Each tab = one class section
                 </p>
             </div>
 
+            {/* No timetable state */}
             {sections.length === 0 ? (
                 <div className="bg-gray-800 rounded-2xl p-12 text-center">
                     <div className="text-5xl mb-4">🗓️</div>
@@ -660,13 +810,13 @@ export default function Timetable() {
                         No timetable generated yet.
                     </p>
                     <p className="text-gray-500 mt-2">
-                        Go to Generate page and run the GA first.
+                        Go to the Generate page and run the GA first.
                     </p>
                 </div>
             ) : (
                 <div className="bg-gray-800 rounded-2xl p-6">
 
-                    {/* Tabs */}
+                    {/* Section tabs */}
                     <div className="flex gap-2 mb-6 flex-wrap">
                         {sections.map((sec, idx) => {
                             const info = classInfoMap[sec.classId];
@@ -692,7 +842,7 @@ export default function Timetable() {
                         })}
                     </div>
 
-                    {/* Tab content */}
+                    {/* Each section's timetable */}
                     {sections.map((sec, idx) => {
                         const info = classInfoMap[sec.classId] || {
                             id: sec.classId,
@@ -705,7 +855,7 @@ export default function Timetable() {
                                 className={activeTab === idx ? "block" : "hidden"}>
 
                                 {/* Section info bar */}
-                                <div className="flex items-center gap-4 mb-4 flex-wrap">
+                                <div className="flex items-center gap-4 mb-5 flex-wrap">
                                     <div className="bg-blue-900 border border-blue-700
                                   rounded-xl px-4 py-2">
                                         <p className="text-blue-300 text-xs">Class</p>
@@ -719,7 +869,9 @@ export default function Timetable() {
                                     </div>
                                     <div className="bg-gray-700 rounded-xl px-4 py-2">
                                         <p className="text-gray-400 text-xs">Section</p>
-                                        <p className="text-white font-bold">{info.section}</p>
+                                        <p className="text-white font-bold">
+                                            {info.section}
+                                        </p>
                                     </div>
                                     <div className="bg-gray-700 rounded-xl px-4 py-2">
                                         <p className="text-gray-400 text-xs">Total Slots</p>
@@ -729,6 +881,7 @@ export default function Timetable() {
                                     </div>
                                 </div>
 
+                                {/* The actual grid */}
                                 <TimetableGrid
                                     genes={sec.genes || []}
                                     subjects={subjects}
@@ -741,9 +894,11 @@ export default function Timetable() {
                                         handleGenesChange(sec.classId, newGenes)
                                     }
                                 />
+
                             </div>
                         );
                     })}
+
                 </div>
             )}
         </Layout>
