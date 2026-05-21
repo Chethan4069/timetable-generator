@@ -122,11 +122,6 @@ Open `http://localhost:5173`
 
 ---
 
-## 📸 Screenshots
-
-> Add screenshots of your dashboard, timetable grid, and PDF export here.
-
----
 
 ## 👨‍💻 Author
 
