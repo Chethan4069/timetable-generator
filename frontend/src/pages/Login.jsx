@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import API from "../api/api";
 import toast from "react-hot-toast";
@@ -67,6 +67,15 @@ export default function Login() {
                          focus:border-blue-500 transition"
                             required
                         />
+                        
+                        <p className="text-center text-gray-400 text-sm mt-6">
+                            Don't have an account?{" "}
+                            <Link to="/register"
+                                  className="text-blue-400 hover:text-blue-300
+                                             font-medium transition">
+                              Register here
+                            </Link>
+                        </p>
                     </div>
 
                     <button

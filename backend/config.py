@@ -18,5 +18,9 @@ class Config:
         f"@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     )
 
-    JWT_SECRET_KEY           = os.getenv("JWT_SECRET_KEY", "jwt-fallback")
-    JWT_ACCESS_TOKEN_EXPIRES = 86400
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-fallback")
+
+    # WHY: Read as int — docker-compose passes it as string
+    JWT_ACCESS_TOKEN_EXPIRES = int(
+        os.getenv("JWT_ACCESS_TOKEN_EXPIRES", "2592000")
+    )

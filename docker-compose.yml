@@ -1,0 +1,121 @@
+# WHY: version 3.8 is the most stable and widely supported
+# docker-compose format.
+
+services:
+
+  # ── Container 1: PostgreSQL Database ─────────────────────────────
+  db:
+    # WHY: We use the official PostgreSQL 15 image from Docker Hub.
+    # No need to install PostgreSQL manually — Docker pulls it automatically.
+    image: postgres:15
+
+    # WHY: Container name makes it easy to identify in Docker Desktop.
+    container_name: timetable_db
+
+    # WHY: Environment variables configure PostgreSQL automatically.
+    # When the container starts for the first time, it creates the
+    # database and user using these values.
+    environment:
+      POSTGRES_DB:       timetable_db
+      POSTGRES_USER:     timetable_user
+      POSTGRES_PASSWORD: timetable123
+
+    # WHY: Port mapping — HOST:CONTAINER
+    # 5433:5432 means your PC's port 5433 maps to container's port 5432.
+    # We use 5433 on host to avoid conflict with your existing PostgreSQL.
+    ports:
+      - "5433:5432"
+
+    # WHY: Volume persists data even when container is stopped/deleted.
+    # Without this, all your data disappears when container restarts.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    # WHY: Networks allow containers to talk to each other by name.
+    # The backend will connect to "db" as the hostname.
+    networks:
+      - timetable_network
+
+  # ── Container 2: Flask Backend ────────────────────────────────────
+  backend:
+    # WHY: "build: ./backend" tells Docker to build the image
+    # using the Dockerfile inside the backend folder.
+    build: ./backend
+
+    container_name: timetable_backend
+
+    # WHY: depends_on ensures db starts BEFORE backend.
+    # Without this, backend tries to connect to DB before it's ready.
+    depends_on:
+      - db
+
+    # WHY: Environment variables override the .env file inside Docker.
+    # DB_HOST is "db" — the name of the db service above.
+    # Docker automatically resolves "db" to the database container's IP.
+    environment:
+      FLASK_ENV:        development
+      FLASK_DEBUG:      "True"
+      SECRET_KEY:       my-super-secret-key
+      JWT_SECRET_KEY:   jwt-secret-string
+      DB_HOST:          db
+      DB_PORT:          "5432"
+      DB_NAME:          timetable_db
+      DB_USER:          timetable_user
+      DB_PASSWORD:      timetable123
+      JWT_ACCESS_TOKEN_EXPIRES: "2592000"
+
+    ports:
+      - "5000:5000"
+
+    # WHY: Volume mounts your local backend folder into the container.
+    # Any code change you make is instantly reflected — no rebuild needed.
+    volumes:
+      - ./backend:/app
+
+    networks:
+      - timetable_network
+
+    # WHY: restart: on-failure restarts the backend if it crashes
+    # (e.g., if DB wasn't ready yet on first connection attempt).
+    restart: on-failure
+
+  # ── Container 3: React Frontend ───────────────────────────────────
+  frontend:
+    build: ./frontend
+
+    container_name: timetable_frontend
+
+    # WHY: Frontend depends on backend being ready.
+    depends_on:
+      - backend
+
+    environment:
+      # WHY: Tells Vite which port to use inside the container.
+      - VITE_PORT=5173
+
+    ports:
+      - "5173:5173"
+
+    # WHY: Live code reload — changes in your src folder
+    # immediately show in the browser without rebuilding.
+    volumes:
+      - ./frontend:/app
+      # WHY: This line is critical.
+      # Without it, Docker would overwrite the container's
+      # node_modules with your empty local folder.
+      # Anonymous volume keeps container's node_modules intact.
+      - /app/node_modules
+
+    networks:
+      - timetable_network
+
+# WHY: Named volume declared here so Docker manages it.
+# Data survives container restarts and removals.
+volumes:
+  postgres_data:
+
+# WHY: Custom network so all 3 containers can communicate
+# with each other using service names as hostnames.
+networks:
+  timetable_network:
+    driver: bridge
